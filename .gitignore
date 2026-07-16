@@ -1,0 +1,15 @@
+target/
+build/
+dist/
+nbproject/private/
+nbactions.xml
+nb-configuration.xml
+.nb-gradle/
+*.class
+*.jar
+*.nbm
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
