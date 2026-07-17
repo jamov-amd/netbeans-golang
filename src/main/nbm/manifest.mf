@@ -1,0 +1,3 @@
+Manifest-Version: 1.0
+OpenIDE-Module-Layer: com/automatemydata/netbeans/golang/layer.xml
+
