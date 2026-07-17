@@ -21,7 +21,7 @@
 
     <groupId>com.automatemydata</groupId>
     <artifactId>netbeans-golang</artifactId>
-    <version>1.1.0-SNAPSHOT</version>
+    <version>1.2.0-SNAPSHOT</version>
     <packaging>nbm</packaging>
 
     <name>Go</name>
