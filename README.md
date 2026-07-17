@@ -1,5 +1,7 @@
 # netbeans-golang
 
+[![build](https://github.com/jamov-amd/netbeans-golang/actions/workflows/build.yml/badge.svg)](https://github.com/jamov-amd/netbeans-golang/actions/workflows/build.yml)
+
 Go language support for Apache NetBeans, powered by [gopls](https://go.dev/gopls/) — the
 official Go language server.
 
@@ -32,13 +34,22 @@ go install golang.org/x/tools/gopls@latest
 
 The plugin locates `gopls` in this order:
 
-1. an explicit path you configure in the plugin settings
+1. the path set in **Tools > Options > Miscellaneous > Go**, if you set one
 2. `gopls` on your `PATH`
 3. `$GOBIN`
 4. `$GOPATH/bin` (default `~/go/bin`, or `%USERPROFILE%\go\bin` on Windows)
 
 If gopls cannot be found, the plugin shows a notification with the install command rather
 than failing silently.
+
+## Settings
+
+**Tools > Options > Miscellaneous > Go** lets you point the plugin at a specific gopls — useful
+if it lives outside the search path above, or if you keep several versions around. Leave the
+field empty to use auto-detection; the hint under it always shows which executable the current
+setting resolves to.
+
+Changing the path restarts the language server, so it takes effect without restarting the IDE.
 
 ## Installing
 
@@ -48,9 +59,15 @@ The NBM is unsigned, so NetBeans will show a validation warning — that is expe
 
 ## Usage
 
-No NetBeans project type is needed. Open a folder containing your Go module (the **Favorites**
-window works well), open a `.go` file, and gopls starts automatically. gopls locates your
-`go.mod` on its own.
+**File > Open Project** and pick any directory containing a `go.mod` — it is recognised as a Go
+project, no wizard and no IDE-specific metadata. A `go.work` directory opens as a project too,
+so a multi-module workspace opens once at its root. Open a `.go` file and gopls starts
+automatically.
+
+Opening the module as a project is worth doing rather than browsing to a file: the whole module
+becomes one gopls workspace. Individual files still work without a project — **File > Open
+File**, or the **Favorites** window (Ctrl+3) — but then each directory becomes its own workspace
+root, which is fine for a single-package module and wasteful for anything larger.
 
 ## Building from source
 
@@ -74,10 +91,9 @@ Files\NetBeans-24"` — or the space in the path splits it into two arguments.
 
 ## Roadmap
 
-- A `go.mod`-based project type, giving gopls a proper module-root workspace for multi-module
-  repositories
-- Run / test / debug actions
-- An options panel for the gopls path and server flags
+- Run / build / test actions, with `go test` results in the Test Results window
+- Debugging, via [Delve](https://github.com/go-delve/delve) and the IDE's DAP support
+- Server settings beyond the executable path (`gofumpt`, `staticcheck`, analyses)
 - Publication to the Apache NetBeans Plugin Portal
 
 ## License

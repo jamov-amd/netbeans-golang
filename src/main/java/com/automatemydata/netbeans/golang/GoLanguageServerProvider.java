@@ -23,15 +23,17 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.prefs.PreferenceChangeListener;
+import java.util.prefs.Preferences;
 
 import org.netbeans.api.editor.mimelookup.MimeRegistration;
 import org.netbeans.api.editor.mimelookup.MimeRegistrations;
 import org.netbeans.modules.lsp.client.spi.LanguageServerProvider;
+import org.netbeans.modules.lsp.client.spi.ServerRestarter;
 import org.openide.DialogDisplayer;
 import org.openide.NotifyDescriptor;
 import org.openide.util.Lookup;
 import org.openide.util.NbBundle.Messages;
-import org.openide.util.NbPreferences;
 
 /**
  * Starts <a href="https://go.dev/gopls/">gopls</a>, the official Go language server, and hands its
@@ -52,10 +54,8 @@ public final class GoLanguageServerProvider implements LanguageServerProvider {
 
     private static final Logger LOG = Logger.getLogger(GoLanguageServerProvider.class.getName());
 
-    /** Preferences key holding a user-configured absolute path to the gopls executable. */
-    public static final String PREF_GOPLS_PATH = "goplsPath";
-
-    private static final String INSTALL_COMMAND = "go install golang.org/x/tools/gopls@latest";
+    /** The command users are told to run when gopls is missing. */
+    public static final String INSTALL_COMMAND = "go install golang.org/x/tools/gopls@latest";
 
     /** Guards the "gopls not found" dialog so it appears at most once per IDE session. */
     private static final AtomicBoolean MISSING_REPORTED = new AtomicBoolean();
@@ -71,6 +71,7 @@ public final class GoLanguageServerProvider implements LanguageServerProvider {
             ProcessBuilder pb = new ProcessBuilder(gopls, "serve");
             Process process = pb.start();
             drainStderr(process);
+            restartOnPathChange(lookup.lookup(ServerRestarter.class), process);
             LOG.log(Level.INFO, "Started gopls: {0}", gopls);
             return LanguageServerDescription.create(
                     process.getInputStream(), process.getOutputStream(), process);
@@ -81,9 +82,56 @@ public final class GoLanguageServerProvider implements LanguageServerProvider {
     }
 
     /**
-     * Locates the gopls executable, in order of preference:
+     * Restarts this server if the user points the plugin at a different gopls, so the change
+     * takes effect without an IDE restart.
+     *
+     * <p>The listener fires once and then detaches: a restart brings us back through
+     * {@link #startServer} which registers a fresh one. It also detaches if the process dies for
+     * any other reason, so servers that come and go do not accumulate listeners.
+     */
+    private static void restartOnPathChange(ServerRestarter restarter, Process process) {
+        if (restarter == null) {
+            return;
+        }
+        Preferences prefs = GoOptions.prefs();
+        PreferenceChangeListener[] listener = new PreferenceChangeListener[1];
+        listener[0] = evt -> {
+            if (GoOptions.PREF_GOPLS_PATH.equals(evt.getKey())) {
+                prefs.removePreferenceChangeListener(listener[0]);
+                LOG.log(Level.INFO, "gopls path changed; restarting the language server");
+                restarter.restart();
+            }
+        };
+        prefs.addPreferenceChangeListener(listener[0]);
+        process.onExit().thenRun(() -> prefs.removePreferenceChangeListener(listener[0]));
+    }
+
+    /**
+     * Locates the gopls executable: the path configured in Tools | Options if there is one,
+     * otherwise whatever {@link #autoDetectGopls()} can find.
+     *
+     * <p>A configured path that is not executable is reported and then ignored in favour of
+     * auto-detection — a stale setting degrades to the default rather than breaking the plugin.
+     *
+     * @return an absolute path to an executable gopls, or {@code null} if none was found
+     */
+    static String findGopls() {
+        String configured = GoOptions.goplsPath();
+        if (!configured.isBlank()) {
+            File f = new File(configured.trim());
+            if (f.canExecute()) {
+                return f.getAbsolutePath();
+            }
+            LOG.log(Level.WARNING,
+                    "Configured gopls path is not executable, falling back to auto-detection: {0}",
+                    configured);
+        }
+        return autoDetectGopls();
+    }
+
+    /**
+     * Searches for gopls the way the Go tools themselves would, in order:
      * <ol>
-     *   <li>an explicit path configured in the plugin preferences,</li>
      *   <li>{@code gopls} on the {@code PATH},</li>
      *   <li>{@code $GOBIN},</li>
      *   <li>{@code $GOPATH/bin} (first entry, if {@code GOPATH} is set),</li>
@@ -92,17 +140,7 @@ public final class GoLanguageServerProvider implements LanguageServerProvider {
      *
      * @return an absolute path to an executable gopls, or {@code null} if none was found
      */
-    static String findGopls() {
-        String configured = NbPreferences.forModule(GoLanguageServerProvider.class)
-                .get(PREF_GOPLS_PATH, null);
-        if (configured != null && !configured.isBlank()) {
-            File f = new File(configured.trim());
-            if (f.canExecute()) {
-                return f.getAbsolutePath();
-            }
-            LOG.log(Level.WARNING, "Configured gopls path is not executable: {0}", configured);
-        }
-
+    public static String autoDetectGopls() {
         String executable = isWindows() ? "gopls.exe" : "gopls";
 
         String path = System.getenv("PATH");
@@ -177,7 +215,8 @@ public final class GoLanguageServerProvider implements LanguageServerProvider {
         "MSG_GoplsNotFound=The Go language server (gopls) could not be found, so code completion, "
                 + "diagnostics and navigation are unavailable. Syntax highlighting still works.\n\n"
                 + "Install it with:\n\n    " + INSTALL_COMMAND + "\n\n"
-                + "The plugin looks for gopls on your PATH, in $GOBIN, and in $GOPATH/bin."
+                + "The plugin looks for gopls on your PATH, in $GOBIN and in $GOPATH/bin. If it is "
+                + "installed somewhere else, set the path in Tools | Options | Miscellaneous | Go."
     })
     private static void reportMissing() {
         LOG.log(Level.WARNING, "gopls not found on PATH, GOBIN, GOPATH/bin or ~/go/bin");
