@@ -39,6 +39,17 @@ the module's only command; if a module has several commands and none at its root
 rather than guessing. Test output is plain text in the Output window — there is no Test Results
 tree yet.
 
+Build and Clean only bring the Output window forward when something fails. Run and Test always
+show it, since their output is the point.
+
+**Run arguments** live in the project's **Properties** (right-click the project). They are passed
+to your program after the package, exactly as if typed after `go run .`, and relative paths
+resolve against the project directory:
+
+```
+-config launcher.conf -verbose
+```
+
 ## Requirements
 
 - Apache NetBeans 24 or later
@@ -109,11 +120,27 @@ Files\NetBeans-24"` — or the space in the path splits it into two arguments.
 ## Roadmap
 
 - `go test` results in the Test Results window, instead of plain Output text
-- Run configurations — arguments, environment, and a choice of `main` package
+- More run configuration — environment variables, and a choice of `main` package
 - Run / test for a single file or package
 - Debugging, via [Delve](https://github.com/go-delve/delve) and the IDE's DAP support
 - Server settings beyond the executable path (`gofumpt`, `staticcheck`, analyses)
 - Publication to the Apache NetBeans Plugin Portal
+
+## Troubleshooting
+
+**`go build ./...` fails with "Access is denied" on a temp `a.out.exe`.** Anti-virus, not the
+plugin — check by running the same command in a terminal, where it fails identically. When
+`go build` covers several packages it discards each binary after linking, and create-then-delete
+of an executable is a pattern anti-ransomware tools block; the scanner still holds the file when
+Go tries to remove it. Anti-malware in Acronis, Defender and others all do this. Add your Go
+installation (`go.exe`) as a trusted process, or exclude the build directories:
+
+```
+<GOCACHE>              (go env GOCACHE)
+<TEMP>/go-build*       (linker scratch space)
+```
+
+It affects every Go build on the machine, not just builds started from the IDE.
 
 ## License
 

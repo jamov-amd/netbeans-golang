@@ -23,6 +23,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -92,12 +93,20 @@ final class GoActionProvider implements ActionProvider {
         // The event thread: cheap work only. Everything that blocks belongs in the Callable.
         ActionProgress progress = ActionProgress.start(context);
         File dir = FileUtil.toFile(project.getProjectDirectory());
+        String runArguments = COMMAND_RUN.equals(command)
+                ? GoRunConfig.runArguments(project.getProjectDirectory())
+                : "";
         String tab = Bundle.LBL_GoOutputTab(
                 ProjectUtils.getInformation(project).getDisplayName(), command);
 
+        // Run and Test are worth watching, so their window opens. Build and Clean have nothing to
+        // say when they succeed, so they stay out of the way until something fails.
+        boolean watchable = COMMAND_RUN.equals(command) || COMMAND_TEST.equals(command);
+
         ExecutionDescriptor descriptor = new ExecutionDescriptor()
                 .controllable(true)
-                .frontWindow(true)
+                .frontWindow(watchable)
+                .frontWindowOnError(true)
                 .showProgress(true)
                 .outLineBased(true)
                 .errLineBased(true)
@@ -106,14 +115,14 @@ final class GoActionProvider implements ActionProvider {
                 .errConvertorFactory(() -> new GoErrorLineConvertor(dir))
                 .postExecution(exitCode -> progress.finished(exitCode != null && exitCode == 0));
 
-        ExecutionService.newService(() -> startGo(dir, command), descriptor, tab).run();
+        ExecutionService.newService(() -> startGo(dir, command, runArguments), descriptor, tab).run();
     }
 
     /**
      * Runs on an execution thread, so it may block. Saving first matches every other NetBeans
      * project type: what gets built is what is on disk.
      */
-    private static Process startGo(File dir, String command) throws IOException {
+    private static Process startGo(File dir, String command, String runArguments) throws IOException {
         LifecycleManager.getDefault().saveAll();
 
         String go = GoExecutable.findGo();
@@ -124,11 +133,12 @@ final class GoActionProvider implements ActionProvider {
         ProcessBuilder builder = ProcessBuilder.getLocal();
         builder.setExecutable(go);
         builder.setWorkingDirectory(dir.getAbsolutePath());
-        builder.setArguments(argsFor(command, go, dir));
+        builder.setArguments(argsFor(command, go, dir, runArguments));
         return builder.call();
     }
 
-    private static List<String> argsFor(String command, String go, File dir) throws IOException {
+    private static List<String> argsFor(String command, String go, File dir, String runArguments)
+            throws IOException {
         switch (command) {
             case COMMAND_BUILD:
                 return List.of("build", "./...");
@@ -139,8 +149,12 @@ final class GoActionProvider implements ActionProvider {
                 return List.of("build", "-a", "./...");
             case COMMAND_TEST:
                 return List.of("test", "./...");
-            case COMMAND_RUN:
-                return List.of("run", packageToRun(go, dir));
+            case COMMAND_RUN: {
+                // Anything after the package is go's to hand on to the program untouched.
+                List<String> args = new ArrayList<>(List.of("run", packageToRun(go, dir)));
+                args.addAll(GoRunConfig.tokenize(runArguments));
+                return args;
+            }
             default:
                 throw new IllegalArgumentException(command);
         }

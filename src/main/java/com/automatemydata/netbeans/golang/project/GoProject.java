@@ -62,7 +62,9 @@ import org.openide.util.lookup.ServiceProvider;
     @ActionReference(id = @ActionID(category = "Project", id = "org.netbeans.modules.project.ui.SetMainProject"),
             path = GoProject.ACTIONS_PATH, position = 600),
     @ActionReference(id = @ActionID(category = "Project", id = "org.netbeans.modules.project.ui.CloseProject"),
-            path = GoProject.ACTIONS_PATH, position = 700)
+            path = GoProject.ACTIONS_PATH, position = 700, separatorAfter = 750),
+    @ActionReference(id = @ActionID(category = "Project", id = "org.netbeans.modules.project.ui.CustomizeProject"),
+            path = GoProject.ACTIONS_PATH, position = 800)
 })
 public final class GoProject implements Project {
 
@@ -80,7 +82,7 @@ public final class GoProject implements Project {
     GoProject(FileObject projectDir) {
         this.projectDir = projectDir;
         this.lookup = Lookups.fixed(this, new ProjectInfo(), new GoLogicalViewProvider(this),
-                new GoActionProvider(this));
+                new GoActionProvider(this), new GoCustomizerProvider(this));
     }
 
     @Override
