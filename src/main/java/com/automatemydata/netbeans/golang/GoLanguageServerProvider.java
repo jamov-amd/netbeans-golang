@@ -141,19 +141,14 @@ public final class GoLanguageServerProvider implements LanguageServerProvider {
      * @return an absolute path to an executable gopls, or {@code null} if none was found
      */
     public static String autoDetectGopls() {
-        String executable = isWindows() ? "gopls.exe" : "gopls";
+        String executable = GoExecutable.exeName("gopls");
 
-        String path = System.getenv("PATH");
-        if (path != null) {
-            for (String dir : path.split(File.pathSeparator)) {
-                String found = executableIn(dir, executable);
-                if (found != null) {
-                    return found;
-                }
-            }
+        String found = GoExecutable.onPath(executable);
+        if (found != null) {
+            return found;
         }
 
-        String found = executableIn(System.getenv("GOBIN"), executable);
+        found = GoExecutable.executableIn(System.getenv("GOBIN"), executable);
         if (found != null) {
             return found;
         }
@@ -162,7 +157,7 @@ public final class GoLanguageServerProvider implements LanguageServerProvider {
         if (gopath != null && !gopath.isBlank()) {
             // GOPATH may list several roots; go install writes to the first one.
             String first = gopath.split(File.pathSeparator)[0];
-            found = executableIn(new File(first, "bin").getPath(), executable);
+            found = GoExecutable.executableIn(new File(first, "bin").getPath(), executable);
             if (found != null) {
                 return found;
             }
@@ -170,25 +165,13 @@ public final class GoLanguageServerProvider implements LanguageServerProvider {
 
         String home = System.getProperty("user.home");
         if (home != null) {
-            found = executableIn(new File(home, "go" + File.separator + "bin").getPath(), executable);
+            found = GoExecutable.executableIn(new File(home, "go" + File.separator + "bin").getPath(), executable);
             if (found != null) {
                 return found;
             }
         }
 
         return null;
-    }
-
-    private static String executableIn(String dir, String executable) {
-        if (dir == null || dir.isBlank()) {
-            return null;
-        }
-        File candidate = new File(dir.trim(), executable);
-        return candidate.isFile() && candidate.canExecute() ? candidate.getAbsolutePath() : null;
-    }
-
-    private static boolean isWindows() {
-        return System.getProperty("os.name", "").toLowerCase().contains("windows");
     }
 
     /**

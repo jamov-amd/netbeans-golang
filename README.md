@@ -22,6 +22,23 @@ every other editor.
 
 Everything above comes from gopls, so behavior matches the Go tooling you already use.
 
+Go modules also open as projects, with **Build**, **Clean**, **Rebuild**, **Run** and **Test**
+running the `go` commands you would type yourself and reporting to the Output window, where
+errors are clickable:
+
+| Action | Command |
+|---|---|
+| Build | `go build ./...` |
+| Clean | `go clean ./...` |
+| Rebuild | `go build -a ./...` |
+| Run | `go run .` — or the module's one `main` package, if it is not at the root |
+| Test | `go test ./...` |
+
+Run needs a `main` package to aim at. It uses the module root when that is a command, otherwise
+the module's only command; if a module has several commands and none at its root, Run says so
+rather than guessing. Test output is plain text in the Output window — there is no Test Results
+tree yet.
+
 ## Requirements
 
 - Apache NetBeans 24 or later
@@ -91,7 +108,9 @@ Files\NetBeans-24"` — or the space in the path splits it into two arguments.
 
 ## Roadmap
 
-- Run / build / test actions, with `go test` results in the Test Results window
+- `go test` results in the Test Results window, instead of plain Output text
+- Run configurations — arguments, environment, and a choice of `main` package
+- Run / test for a single file or package
 - Debugging, via [Delve](https://github.com/go-delve/delve) and the IDE's DAP support
 - Server settings beyond the executable path (`gofumpt`, `staticcheck`, analyses)
 - Publication to the Apache NetBeans Plugin Portal

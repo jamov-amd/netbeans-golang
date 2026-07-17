@@ -91,7 +91,7 @@ final class GoLogicalViewProvider implements LogicalViewProvider {
 
         @Override
         public Action[] getActions(boolean context) {
-            return CommonProjectActions.forType("org-automatemydata-netbeans-golang");
+            return CommonProjectActions.forType(GoProject.TYPE);
         }
     }
 

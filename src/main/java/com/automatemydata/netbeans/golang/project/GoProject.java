@@ -26,6 +26,9 @@ import org.netbeans.api.project.ProjectManager;
 import org.netbeans.spi.project.ProjectFactory;
 import org.netbeans.spi.project.ProjectFactory2;
 import org.netbeans.spi.project.ProjectState;
+import org.openide.awt.ActionID;
+import org.openide.awt.ActionReference;
+import org.openide.awt.ActionReferences;
 import org.openide.filesystems.FileObject;
 import org.openide.util.ImageUtilities;
 import org.openide.util.Lookup;
@@ -45,16 +48,39 @@ import org.openide.util.lookup.ServiceProvider;
  * caches a server per root, so browsing files across a module without a project starts one gopls
  * per directory instead of one per module.
  */
+@ActionReferences(value = {
+    @ActionReference(id = @ActionID(category = "Project", id = "org.netbeans.modules.project.ui.BuildProject"),
+            path = GoProject.ACTIONS_PATH, position = 100),
+    @ActionReference(id = @ActionID(category = "Project", id = "org.netbeans.modules.project.ui.RebuildProject"),
+            path = GoProject.ACTIONS_PATH, position = 200),
+    @ActionReference(id = @ActionID(category = "Project", id = "org.netbeans.modules.project.ui.CleanProject"),
+            path = GoProject.ACTIONS_PATH, position = 300, separatorAfter = 350),
+    @ActionReference(id = @ActionID(category = "Project", id = "org.netbeans.modules.project.ui.RunProject"),
+            path = GoProject.ACTIONS_PATH, position = 400),
+    @ActionReference(id = @ActionID(category = "Project", id = "org.netbeans.modules.project.ui.TestProject"),
+            path = GoProject.ACTIONS_PATH, position = 500, separatorAfter = 550),
+    @ActionReference(id = @ActionID(category = "Project", id = "org.netbeans.modules.project.ui.SetMainProject"),
+            path = GoProject.ACTIONS_PATH, position = 600),
+    @ActionReference(id = @ActionID(category = "Project", id = "org.netbeans.modules.project.ui.CloseProject"),
+            path = GoProject.ACTIONS_PATH, position = 700)
+})
 public final class GoProject implements Project {
 
     static final String ICON = "com/automatemydata/netbeans/golang/project/go-project.png";
+
+    /** Project type token; the logical view's actions are read from this type's layer folder. */
+    static final String TYPE = "org-automatemydata-netbeans-golang";
+
+    /** Where the Projects tab looks for this project's context-menu actions. */
+    static final String ACTIONS_PATH = "Projects/" + TYPE + "/Actions";
 
     private final FileObject projectDir;
     private final Lookup lookup;
 
     GoProject(FileObject projectDir) {
         this.projectDir = projectDir;
-        this.lookup = Lookups.fixed(this, new ProjectInfo(), new GoLogicalViewProvider(this));
+        this.lookup = Lookups.fixed(this, new ProjectInfo(), new GoLogicalViewProvider(this),
+                new GoActionProvider(this));
     }
 
     @Override
